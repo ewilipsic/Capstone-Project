@@ -106,7 +106,7 @@ void yens(int n,
     }
 
     // select spur vertex
-    for(int i = A.size() - 2;i >= max(0,prev_spuridx + 1);i--){
+    for(int i = (int)A.size() - 2;i >= max(0,prev_spuridx + 1);i--){
         int old = adj[A[i]][A[i+1]];
         prev_cost -= old;
         adj[A[i]][A[i+1]] = INT32_MAX;
