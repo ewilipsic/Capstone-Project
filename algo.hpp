@@ -38,6 +38,16 @@ typedef struct AlgoResults{
 
 } AlgoResults;
 
+typedef struct Holistic_MessageWrapper{
+    int M_idx;
+    int rep;
+    int start_time;
+    int end_time;
+    Message msg;
+} Holistic_MessageWrapper;
+
+
+
 namespace py = pybind11;
 using namespace std;
     
@@ -49,5 +59,6 @@ PYBIND11_MAKE_OPAQUE(std::map<std::pair<int,int>,std::vector<int>>)
 
 int nextUpgradeCost(int rank);
 int CumulativeUpgradeCost(int rank);
+bool compareHolistic_MessageWrapper(const Holistic_MessageWrapper& a, const Holistic_MessageWrapper& b);
 void algo_bind(py::module_ &m);
 void new_algo_bind(py::module_ &m);

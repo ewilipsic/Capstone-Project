@@ -353,15 +353,6 @@ AlgoResults algo(int num_ecu,int num_bridges,vector<Message> M,int Bridge_limit,
     
 }
 
-
-typedef struct Holistic_MessageWrapper{
-    int M_idx;
-    int rep;
-    int start_time;
-    int end_time;
-    Message msg;
-} Holistic_MessageWrapper;
-
 bool compareHolistic_MessageWrapper(const Holistic_MessageWrapper& a, const Holistic_MessageWrapper& b) {
     if (a.start_time != b.start_time) return a.start_time < b.start_time;
     if (a.end_time != b.end_time) return a.end_time < b.end_time;
