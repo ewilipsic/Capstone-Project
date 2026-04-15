@@ -27,7 +27,7 @@ Where,<br>
 &ensp; &ensp; Routes for all messages<br>
 &ensp; &ensp; Starting time for each message<br>
 
-# Main Algorithms & Functions
+## Main Algorithms & Functions
 The core algorithmic logic is implemented in C++ and handles different approaches to scheduling and routing for TSN flows:<br>
 The following algorithms are available with the same call syntax:    <br>
 
@@ -58,7 +58,7 @@ The computationally heavy routing and scheduling algorithms are written in C++ a
     import tsn
 ```
 
-# Compilation Instructions
+## Compilation Instructions
 The project uses CMake to orchestrate the compilation of the C++ source files alongside the Pybind11 Python extension.
 
 Prerequisites
