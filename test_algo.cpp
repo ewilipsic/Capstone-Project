@@ -9,19 +9,6 @@
 #include<unordered_map>
 #include<cstdint>
 using namespace std;
-
-typedef struct AlgoResults{
-    int hyperperiod;
-    std::vector<int> reps;
-    std::vector<std::vector<int>> amount_sent;
-    std::map<std::pair<int,int>,std::vector<std::vector<int>>> R; // pair(sorted msgidx,rep) -> routes
-    std::map<std::pair<int,int>,std::vector<int>> departure_times; // pair(sorted msgidx,rep) -> depatrues of each disjoint
-    std::vector<std::vector<int>> W;
-    std::vector<float> point_array;
-    int Cost;
-
-} AlgoResults;
-
 typedef struct Message {
     int src;
     int sink;
@@ -37,6 +24,20 @@ typedef struct Message {
                       std::to_string(tl) + "]";
     }
 } Message;
+
+typedef struct AlgoResults{
+    int hyperperiod;
+    std::vector<int> reps;
+    std::vector<std::vector<int>> amount_sent;
+    std::map<std::pair<int,int>,std::vector<std::vector<int>>> R; // pair(sorted msgidx,rep) -> routes
+    std::map<std::pair<int,int>,std::vector<int>> departure_times; // pair(sorted msgidx,rep) -> depatrues of each disjoint
+    std::vector<std::vector<int>> W;
+    std::vector<float> point_array;
+    std::vector<Message> sorted_messages;
+    int Cost;
+
+} AlgoResults;
+
 
 int nextUpgradeCost(int rank){
     return 2;
@@ -70,7 +71,7 @@ bool look_forward_wrt_color(int node,int Next,int time_start,int size,int color,
     return true;
 }
 
-AlgoResults algo(int num_ecu,int num_bridges,vector<Message> M,int Bridge_limit,int link_build_cost,int yens_kmax,int assignment_type,int verbose,int debug_print){
+AlgoResults my_optimized_algo(int num_ecu,int num_bridges,vector<Message> M,int Bridge_limit,int link_build_cost,int yens_kmax,int assignment_type,int verbose,int debug_print){
 
     int HOP_COST = 1;
     int n = num_ecu + num_bridges;
@@ -90,6 +91,7 @@ AlgoResults algo(int num_ecu,int num_bridges,vector<Message> M,int Bridge_limit,
     for(int i = 0;i<M.size();i++){
         repeats[i] = hyper_period/M[i].period;
     }
+
     // adj[t][u][v] link use between during the t'th time step 
     vector<vector<vector<int>>> adj(hyper_period,vector<vector<int>>(n,vector<int>(n, 0 )));
     for(int t = 0;t<hyper_period;t++){
@@ -109,8 +111,23 @@ AlgoResults algo(int num_ecu,int num_bridges,vector<Message> M,int Bridge_limit,
     map<pair<int,int>,vector<vector<int>>> R; // pair(sorted msgidx,rep) -> routes
     map<pair<int,int>,vector<int>> departure_times; // pair(sorted msgidx,rep) -> depatrues of each disjoint
 
+    // initialize R to empty vectors
+    for (int msg = 0;msg < M.size();msg++){
+        for( int rep = 0;rep < repeats[msg] ;rep++){
+            R[{msg,rep}] = {};
+        }
+    }
+
+    cout << "Generated Messages:" << endl;
+    for (Message& m : M) {
+        cout << m.to_string() << endl;
+    }
+    cout << "-----------------------" << endl;
+
+    int running_lcm = 1;
+
     for(int msg = 0;msg < M.size();msg++){
-        cout<<"  "<<M[msg].to_string()<<"  "<<"Reps: "<<repeats[msg]<<endl;
+        // cout<<"  "<<M[msg].to_string()<<"  "<<"Reps: "<<repeats[msg]<<endl;
         
         int src = M[msg].src;
         int sink = M[msg].sink;
@@ -118,10 +135,47 @@ AlgoResults algo(int num_ecu,int num_bridges,vector<Message> M,int Bridge_limit,
         int tl = M[msg].tl;
         int period = M[msg].period;
 
+        running_lcm = lcm(running_lcm, period);
+        int target_reps = running_lcm/period;
+
         for(int rep = 0;rep < repeats[msg];rep++){
 
             int start_time = 0 + rep * M[msg].period;
             int end_time = 0 + rep * M[msg].period + M[msg].period;
+            
+            if(rep >= target_reps){
+                
+                cout<<"1"<<endl;
+                auto& Rm = R[{msg,rep % target_reps}];
+                auto departure_timesm = departure_times[{msg,rep % target_reps}];
+                
+                for(int i = 0;i<departure_timesm.size();i++){
+                    departure_timesm[i] += ( rep - (rep % target_reps) ) * period;
+                }   
+                
+                cout<<"A"<<endl;
+                // update weights
+                for(int idx = 0;idx<Rm.size();idx++){
+                    vector<int>& route = Rm[idx];
+                    for(int i = 0;i<route.size()-1;i++){
+                        for(int s = 0; s < size;s++) {
+                            if(departure_timesm[idx] + i + s >= hyper_period) cout<<"DEPT PROB"<<msg<<"#"<<rep<<"#"<<departure_timesm[idx]<<"#"<<departure_times[{msg,rep % target_reps}][idx]<<endl;
+                            adj[departure_timesm[idx] + i + s][route[i]][route[i+1]] = 1;
+                        }
+                        for(int s = 0; s < size;s++) adj[departure_timesm[idx] + i + s][route[i+1]][route[i]] = 1;
+                        
+                    }
+                }
+
+                cout<<"B"<<endl;
+
+                // update amount sent,R,depature_times
+                amount_sent[msg][rep] = amount_sent[msg][rep % target_reps];
+                R[{msg,rep}] = Rm;
+                departure_times[{msg,rep}] = departure_timesm;
+
+                continue;
+            }
 
             // --------------- handling a rep --------------------
             
@@ -129,11 +183,9 @@ AlgoResults algo(int num_ecu,int num_bridges,vector<Message> M,int Bridge_limit,
             map< pair<int,int>, map< int, vector<pair<int,int>> > > nexts;
             int new_color = 0;
 
-            map<pair<int,int>,int> edgeColor;
             // thing go from u -> v
+            map<pair<int,int>,int> edgeColor;
             for(int v_time = end_time;v_time > start_time;v_time--){
-
-             
                 // propagate downwards
                 for(int v = 0;v<n;v++){
                     if(v == src) continue;
@@ -142,7 +194,7 @@ AlgoResults algo(int num_ecu,int num_bridges,vector<Message> M,int Bridge_limit,
                             if(u == sink) continue;
                             int tflag = 1;
                             for(int temp = v_time-1;temp < v_time - 1 + size;temp++){
-                                if(temp >= hyper_period || adj[temp][u][v] != 0 || W[u][v] == INT32_MAX) tflag = 0;
+                                if(temp >= hyper_period || temp >= end_time || adj[temp][u][v] != 0 || W[u][v] == INT32_MAX) tflag = 0;
                             }
                             if(!tflag) continue;
 
@@ -150,12 +202,12 @@ AlgoResults algo(int num_ecu,int num_bridges,vector<Message> M,int Bridge_limit,
                         }
                         continue;
                     }
-                
+
                     for(int u = 0;u<n;u++){
                         if(u == v || u == sink) continue;
                         int tflag = 1;
                         for(int temp = v_time-1;temp < v_time - 1 + size;temp++){
-                            if(temp >= hyper_period || adj[temp][u][v] != 0 || W[u][v] == INT32_MAX) tflag = 0;
+                            if(temp >= hyper_period || temp >= end_time || adj[temp][u][v] != 0 || W[u][v] == INT32_MAX) tflag = 0;
                         }
                         if(!tflag) continue;
 
@@ -169,7 +221,6 @@ AlgoResults algo(int num_ecu,int num_bridges,vector<Message> M,int Bridge_limit,
                 }
 
                 // clarify nexts
-             
                 for(int u = 0;u<n;u++){
                     if(u == sink) continue;
         
@@ -328,7 +379,7 @@ AlgoResults algo(int num_ecu,int num_bridges,vector<Message> M,int Bridge_limit,
     topologyCost = topologyCost/2;
     for(int i = 0;i<num_ecu+num_bridges;i++) topologyCost += CumulativeUpgradeCost(node_rank[i]);
 
-    AlgoResults ret = {hyper_period,repeats,amount_sent,R,departure_times,W,{},topologyCost};
+    AlgoResults ret = {hyper_period,repeats,amount_sent,R,departure_times,W,{},M,topologyCost};
 
     return ret;
 
@@ -401,15 +452,15 @@ int main() {
     int num_bridges =  4;
     // 1. Define inputs for makeInputs
 
-    int num_messages = 5;
+    int num_messages = 15;
     int base_period = 1;
-    std::vector<int> period_choice = {7,14,28};
-    std::vector<double> period_choice_weights = {0.5, 0.3,0.2};
-    int min_size = 2;
-    int max_size = 4;
+    std::vector<int> period_choice = {5,10};
+    std::vector<double> period_choice_weights = {0.7, 0.3};
+    int min_size = 3;
+    int max_size = 3;
     int min_tl = 2;
     int max_tl = 2;
-    int seed = 1;
+    int seed = 0;
 
     // 2. Generate Messages
     vector<Message> messages = makeInputs(
@@ -423,22 +474,18 @@ int main() {
     //     {3,0,1,3,2},
     // };
 
-    cout << "Generated Messages:" << endl;
-    for (Message& m : messages) {
-        cout << m.to_string() << endl;
-    }
-    cout << "-----------------------" << endl;
+    
 
     // 3. Define inputs for algo
     int Bridge_limit = 6;
     int link_build_cost = 2;
-    int yens_kmax = 40;
+    int yens_kmax = 6;
     int assignment_type = 1;
     int verbose = 0;
     int debug_print = 0;
 
     // 4. Run algo
-    AlgoResults results = algo(
+    AlgoResults results = my_optimized_algo(
         num_ecu, num_bridges, messages, Bridge_limit, 
         link_build_cost, yens_kmax, assignment_type, verbose, debug_print
     );
