@@ -1,4 +1,4 @@
-# CapstoneThings: Time-Sensitive Networking (TSN) Algorithms
+# Capstone Project: Time-Sensitive Networking (TSN) Algorithms
 ----------------------------------------
 This repository contains the C++ implementation and Python interface for evaluating various routing and scheduling algorithms in Time-Sensitive Networking (TSN).<br>
 
@@ -112,7 +112,7 @@ The idea of this algorithm is to work backwards from the destination and propaga
 
 To enforce edge-disjointness we have made it so that each connection (u,v) can only have one color across all timesteps when scheduling a message, since there is only one replica sent along a color we can be assured that all replicas take edge disjoint paths.
 
-Since there is a range of acceptable departure times and arrival times colors are propagated back from more than one destination node and can end up at more than one source node. As opposed to the example shown in the previous slide.
+Since there is a range of acceptable departure times and arrival times colors are propagated back from more than one destination node and can end up at more than one source node.
 
 It also schedules messages in th same order as JTRSS
 
